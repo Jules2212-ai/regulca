@@ -1,0 +1,7 @@
+veille.db
+veille.db-shm
+veille.db-wal
+*.log
+.env
+__pycache__/
+*.pyc
