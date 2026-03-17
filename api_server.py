@@ -23,17 +23,76 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Query
+import bcrypt
+import jwt
+
+from fastapi import FastAPI, Query, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
+
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+import os
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "veille.db")
+USERS_PATH = os.path.join(BASE_DIR, "users.json")
+JWT_SECRET = os.environ.get("JWT_SECRET_KEY", os.environ.get("SECRET_KEY", "regulca-dev-secret-changez-moi-minimum-32-chars"))
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRATION_HOURS = 8
+
+# ---------------------------------------------------------------------------
+# Authentification — utilisateurs et JWT
+# ---------------------------------------------------------------------------
+def load_users():
+    """Charger les utilisateurs depuis users.json."""
+    if not os.path.exists(USERS_PATH):
+        return []
+    with open(USERS_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def verify_password(plain_password, hashed_password):
+    """Vérifier un mot de passe contre son hash bcrypt."""
+    return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+
+def create_jwt_token(username, role):
+    """Créer un token JWT avec expiration."""
+    payload = {
+        "sub": username,
+        "role": role,
+        "iat": datetime.utcnow(),
+        "exp": datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+def decode_jwt_token(token):
+    """Décoder et vérifier un token JWT. Retourne le payload ou None."""
+    try:
+        return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+        return None
+
+def get_current_user(request: Request):
+    """Extraire l'utilisateur du header Authorization. Retourne le payload JWT ou None."""
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None
+    token = auth_header[7:]
+    return decode_jwt_token(token)
+
+def require_auth(request: Request):
+    """Dépendance FastAPI — bloque avec 401 si pas de token valide."""
+    user = get_current_user(request)
+    if user is None:
+        return None
+    return user
 
 # ---------------------------------------------------------------------------
 # Database setup
 # ---------------------------------------------------------------------------
-import os
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "veille.db")
 
 def get_db():
     db = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -543,6 +602,60 @@ app = FastAPI(title="RégulCA Veille API", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
+# ---------------------------------------------------------------------------
+# Middleware d'authentification — protège toutes les routes /api/ sauf whitelist
+# ---------------------------------------------------------------------------
+AUTH_WHITELIST = ["/api/auth/login", "/api/health"]
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    """Vérifier le token JWT sur toutes les routes /api/ sauf whitelist."""
+    path = request.url.path
+    # Les routes publiques ne nécessitent pas d'authentification
+    if not path.startswith("/api/") or path in AUTH_WHITELIST:
+        return await call_next(request)
+    # Vérifier le token
+    user = get_current_user(request)
+    if user is None:
+        return JSONResponse(status_code=401, content={"error": "Non authentifié"})
+    return await call_next(request)
+
+
+# ---------------------------------------------------------------------------
+# Endpoints d'authentification
+# ---------------------------------------------------------------------------
+@app.post("/api/auth/login")
+def auth_login(body: dict):
+    """Authentifier un utilisateur et retourner un token JWT."""
+    username = body.get("username", "").strip()
+    password = body.get("password", "")
+    if not username or not password:
+        return JSONResponse(status_code=400, content={"error": "Identifiant et mot de passe requis"})
+    users = load_users()
+    for user in users:
+        if user["username"] == username:
+            if verify_password(password, user["password"]):
+                token = create_jwt_token(username, user.get("role", "user"))
+                return {"token": token, "username": username, "role": user.get("role", "user")}
+            break
+    return JSONResponse(status_code=401, content={"error": "Identifiants incorrects"})
+
+
+@app.post("/api/auth/logout")
+def auth_logout():
+    """Déconnexion (côté serveur, JWT stateless — le client supprime le token)."""
+    return {"ok": True}
+
+
+@app.get("/api/auth/me")
+def auth_me(request: Request):
+    """Vérifier le token et retourner les infos de l'utilisateur connecté."""
+    user = get_current_user(request)
+    if user is None:
+        return JSONResponse(status_code=401, content={"error": "Non authentifié"})
+    return {"username": user["sub"], "role": user.get("role", "user")}
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok", "service": "RégulCA Veille API", "time": datetime.now().isoformat()}
@@ -739,8 +852,14 @@ def delete_dossier(dossier_id: str):
 
 STATIC_DIR = os.path.dirname(os.path.abspath(__file__))
 
+@app.get("/login")
+def serve_login():
+    """Servir la page de connexion."""
+    return FileResponse(os.path.join(STATIC_DIR, "login.html"))
+
 @app.get("/")
 def serve_index():
+    """Servir l'application principale (l'auth est gérée côté frontend par app.js)."""
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

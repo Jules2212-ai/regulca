@@ -10,6 +10,71 @@
   /* ===== API BASE ===== */
   var API_BASE = "";
 
+  /* ===== AUTHENTIFICATION ===== */
+  function getAuthToken() {
+    return localStorage.getItem("regulca_token");
+  }
+
+  function authFetch(url, options) {
+    /* Wrapper autour de fetch qui ajoute le token JWT et gère les 401. */
+    options = options || {};
+    options.headers = options.headers || {};
+    var token = getAuthToken();
+    if (token) {
+      options.headers["Authorization"] = "Bearer " + token;
+    }
+    return fetch(url, options).then(function (response) {
+      if (response.status === 401) {
+        /* Token expiré ou invalide — rediriger vers login */
+        localStorage.removeItem("regulca_token");
+        window.location.href = "/login";
+        return Promise.reject(new Error("Non authentifié"));
+      }
+      return response;
+    });
+  }
+
+  function checkAuth() {
+    /* Vérifier le token au démarrage. Redirige vers /login si invalide. */
+    var token = getAuthToken();
+    if (!token) {
+      window.location.href = "/login";
+      return;
+    }
+    authFetch(API_BASE + "/api/auth/me").then(function (r) {
+      if (!r.ok) throw new Error("auth_failed");
+      return r.json();
+    }).then(function (data) {
+      /* Injecter le bouton de déconnexion dans la sidebar */
+      injectLogoutButton(data.username);
+    }).catch(function () {
+      localStorage.removeItem("regulca_token");
+      window.location.href = "/login";
+    });
+  }
+
+  function injectLogoutButton(username) {
+    /* Ajouter le bouton de déconnexion dans le footer de la sidebar. */
+    var footer = document.querySelector(".sidebar-footer");
+    if (!footer || document.getElementById("logout-btn")) return;
+    var userInfo = document.createElement("div");
+    userInfo.style.cssText = "padding:0.5rem 0.75rem;font-size:0.8125rem;color:var(--color-text-secondary);border-top:1px solid var(--color-border);margin-top:0.5rem;";
+    userInfo.innerHTML = '<span style="opacity:0.7;">Connecté :</span> <strong>' + username + '</strong>';
+    footer.insertBefore(userInfo, footer.firstChild);
+
+    var btn = document.createElement("button");
+    btn.id = "logout-btn";
+    btn.className = "theme-toggle-btn";
+    btn.style.cssText = "color:var(--color-danger, #dc2626);";
+    btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Se déconnecter</span>';
+    btn.addEventListener("click", function () {
+      authFetch(API_BASE + "/api/auth/logout", { method: "POST" }).catch(function () {});
+      localStorage.removeItem("regulca_token");
+      window.location.href = "/login";
+    });
+    footer.appendChild(btn);
+  }
+
   /* ===== STATE ===== */
   var state = {
     dossiers: [],
@@ -20,7 +85,7 @@
 
   /* ===== API DOSSIERS ===== */
   function loadDossiers(callback) {
-    fetch(API_BASE + "/api/dossiers").then(function (r) {
+    authFetch(API_BASE + "/api/dossiers").then(function (r) {
       return r.json();
     }).then(function (data) {
       state.dossiers = (data.dossiers || []).map(function (d) {
@@ -40,7 +105,7 @@
   function saveDossierToAPI(dossier, isNew, callback) {
     var method = isNew ? "POST" : "PUT";
     var url = isNew ? API_BASE + "/api/dossiers" : API_BASE + "/api/dossiers/" + encodeURIComponent(dossier.id);
-    fetch(url, {
+    authFetch(url, {
       method: method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(dossier)
@@ -54,7 +119,7 @@
   }
 
   function deleteDossierFromAPI(dossierId, callback) {
-    fetch(API_BASE + "/api/dossiers/" + encodeURIComponent(dossierId), { method: "DELETE" })
+    authFetch(API_BASE + "/api/dossiers/" + encodeURIComponent(dossierId), { method: "DELETE" })
       .then(function () { if (callback) callback(true); })
       .catch(function () { if (callback) callback(false); });
   }
@@ -1217,7 +1282,7 @@
   };
 
   function veilleFetch(path, opts) {
-    return fetch(API_BASE + path, opts).then(function (r) {
+    return authFetch(API_BASE + path, opts).then(function (r) {
       if (!r.ok) throw new Error("HTTP " + r.status);
       return r.json();
     });
@@ -1587,6 +1652,8 @@
 
   /* ===== INIT ===== */
   function init() {
+    /* Vérifier l'authentification avant tout */
+    checkAuth();
     initTheme();
     initSidebar();
     /* Charger les dossiers depuis l'API avant le premier rendu */

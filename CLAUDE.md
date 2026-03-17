@@ -12,15 +12,18 @@
 - BDD : SQLite (veille.db)
 - Auth : Microsoft Azure AD SSO (à implémenter)
 
-## Hébergement cible
-- VPS OVH France (Gravelines ou Strasbourg) — cloud souverain français
-- HTTPS via Let's Encrypt + Nginx reverse proxy
-- Données ne quittent pas la France
+## Hébergement
+- Déployé sur Railway (URL publique active et fonctionnelle)
+- Cible long terme : VPS OVH France (souveraineté des données)
+- Code sur GitHub : https://github.com/Jules2212-ai/regulca
 
-## Ce qui fonctionne
-- Backend + frontend unifiés sur port 8000
-- Veille réglementaire avec alertes démo
-- Script de lancement RégulCA.command
+## Où on en est réellement
+- App déployée sur Railway (pas OVH pour l'instant)
+- URL publique Railway active et fonctionnelle
+- Code poussé sur GitHub : https://github.com/Jules2212-ai/regulca
+- Backend CRUD dossiers opérationnel (5 endpoints)
+- Base SQLite éphémère sur Railway (à migrer vers PostgreSQL plus tard)
+- Script RégulCA.command sur le Bureau (lancement local)
 
 ## Conventions de développement
 - Commentaires en français
@@ -29,5 +32,8 @@
 - Ne jamais modifier index.html et api_server.py en même temps
 
 ## Prochaine étape
-Préparer le déploiement sur VPS OVH : requirements.txt,
-configuration Nginx, script de démarrage systemd.
+Ajouter l'authentification Microsoft Azure AD SSO :
+- Page de login avec bouton "Se connecter avec Microsoft"
+- Protection de toutes les routes (frontend + backend)
+- Utilisateurs identifiés par leur email @ccd.fr
+- Secrets Azure dans .env (AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID)
