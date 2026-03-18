@@ -254,8 +254,194 @@ def init_db(db):
             )
     db.commit()
 
+
+def init_medicament_db(db):
+    """Créer les tables du module médicament et ajouter la colonne module aux tables existantes."""
+
+    # --- Colonne module sur alertes (idempotent) ---
+    try:
+        if db.is_postgres:
+            db.execute("ALTER TABLE alertes ADD COLUMN IF NOT EXISTS module TEXT DEFAULT 'ca'")
+            db.execute("ALTER TABLE sources ADD COLUMN IF NOT EXISTS module TEXT DEFAULT 'ca'")
+        else:
+            db.execute("ALTER TABLE alertes ADD COLUMN module TEXT DEFAULT 'ca'")
+            db.execute("ALTER TABLE sources ADD COLUMN module TEXT DEFAULT 'ca'")
+    except Exception:
+        # Colonne déjà existante (SQLite ne supporte pas IF NOT EXISTS sur ALTER)
+        pass
+    db.commit()
+
+    # --- Tables module médicament ---
+    if db.is_postgres:
+        pg_tables = [
+            """CREATE TABLE IF NOT EXISTS ctd_dossiers (
+                id TEXT PRIMARY KEY,
+                nom_medicament TEXT NOT NULL,
+                dci TEXT NOT NULL,
+                type_procedure TEXT NOT NULL,
+                statut TEXT DEFAULT 'brouillon',
+                data TEXT NOT NULL,
+                date_creation TEXT NOT NULL,
+                date_modification TEXT NOT NULL,
+                created_by TEXT NOT NULL
+            )""",
+            """CREATE TABLE IF NOT EXISTS ctd_sections (
+                id SERIAL PRIMARY KEY,
+                dossier_id TEXT NOT NULL REFERENCES ctd_dossiers(id) ON DELETE CASCADE,
+                module INTEGER NOT NULL,
+                section TEXT NOT NULL,
+                titre TEXT NOT NULL,
+                contenu TEXT,
+                statut TEXT DEFAULT 'vide',
+                genere_par_ia INTEGER DEFAULT 0,
+                date_generation TEXT,
+                date_validation TEXT,
+                valide_par TEXT
+            )""",
+            """CREATE TABLE IF NOT EXISTS variations (
+                id TEXT PRIMARY KEY,
+                dossier_ctd_id TEXT REFERENCES ctd_dossiers(id),
+                categorie TEXT NOT NULL,
+                sous_categorie TEXT,
+                type_variation TEXT NOT NULL,
+                description TEXT NOT NULL,
+                classification_ia TEXT,
+                documents_requis TEXT,
+                cover_letter TEXT,
+                statut TEXT DEFAULT 'brouillon',
+                data TEXT NOT NULL,
+                date_creation TEXT NOT NULL,
+                date_modification TEXT NOT NULL,
+                created_by TEXT NOT NULL
+            )""",
+            """CREATE TABLE IF NOT EXISTS glossaire (
+                id SERIAL PRIMARY KEY,
+                terme_fr TEXT NOT NULL,
+                terme_en TEXT NOT NULL,
+                contexte TEXT,
+                valide INTEGER DEFAULT 0,
+                valide_par TEXT,
+                date_creation TEXT NOT NULL
+            )""",
+            """CREATE TABLE IF NOT EXISTS traductions (
+                id SERIAL PRIMARY KEY,
+                texte_source TEXT NOT NULL,
+                texte_traduit TEXT NOT NULL,
+                langue_source TEXT NOT NULL,
+                langue_cible TEXT NOT NULL,
+                type TEXT DEFAULT 'text',
+                date_creation TEXT NOT NULL,
+                created_by TEXT NOT NULL
+            )""",
+        ]
+        for stmt in pg_tables:
+            db.execute(stmt)
+        # Index tables médicament
+        db.execute("CREATE INDEX IF NOT EXISTS idx_ctd_sections_dossier ON ctd_sections(dossier_id)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_variations_ctd ON variations(dossier_ctd_id)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_glossaire_fr ON glossaire(terme_fr)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_alertes_module ON alertes(module)")
+    else:
+        db._conn.executescript("""
+            CREATE TABLE IF NOT EXISTS ctd_dossiers (
+                id TEXT PRIMARY KEY,
+                nom_medicament TEXT NOT NULL,
+                dci TEXT NOT NULL,
+                type_procedure TEXT NOT NULL,
+                statut TEXT DEFAULT 'brouillon',
+                data TEXT NOT NULL,
+                date_creation TEXT NOT NULL,
+                date_modification TEXT NOT NULL,
+                created_by TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS ctd_sections (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                dossier_id TEXT NOT NULL REFERENCES ctd_dossiers(id) ON DELETE CASCADE,
+                module INTEGER NOT NULL,
+                section TEXT NOT NULL,
+                titre TEXT NOT NULL,
+                contenu TEXT,
+                statut TEXT DEFAULT 'vide',
+                genere_par_ia INTEGER DEFAULT 0,
+                date_generation TEXT,
+                date_validation TEXT,
+                valide_par TEXT
+            );
+            CREATE TABLE IF NOT EXISTS variations (
+                id TEXT PRIMARY KEY,
+                dossier_ctd_id TEXT REFERENCES ctd_dossiers(id),
+                categorie TEXT NOT NULL,
+                sous_categorie TEXT,
+                type_variation TEXT NOT NULL,
+                description TEXT NOT NULL,
+                classification_ia TEXT,
+                documents_requis TEXT,
+                cover_letter TEXT,
+                statut TEXT DEFAULT 'brouillon',
+                data TEXT NOT NULL,
+                date_creation TEXT NOT NULL,
+                date_modification TEXT NOT NULL,
+                created_by TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS glossaire (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                terme_fr TEXT NOT NULL,
+                terme_en TEXT NOT NULL,
+                contexte TEXT,
+                valide INTEGER DEFAULT 0,
+                valide_par TEXT,
+                date_creation TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS traductions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                texte_source TEXT NOT NULL,
+                texte_traduit TEXT NOT NULL,
+                langue_source TEXT NOT NULL,
+                langue_cible TEXT NOT NULL,
+                type TEXT DEFAULT 'text',
+                date_creation TEXT NOT NULL,
+                created_by TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_ctd_sections_dossier ON ctd_sections(dossier_id);
+            CREATE INDEX IF NOT EXISTS idx_variations_ctd ON variations(dossier_ctd_id);
+            CREATE INDEX IF NOT EXISTS idx_glossaire_fr ON glossaire(terme_fr);
+            CREATE INDEX IF NOT EXISTS idx_alertes_module ON alertes(module);
+        """)
+
+    # --- Seed sources médicament ---
+    sources_med = [
+        ("ANSM", "web", "https://ansm.sante.fr/", "medicament"),
+        ("EMA", "rss", "https://www.ema.europa.eu/", "medicament"),
+        ("ICH", "web", "https://www.ich.org/", "medicament"),
+        ("FDA", "rss", "https://www.fda.gov/", "medicament"),
+        ("OMS", "web", "https://www.who.int/", "medicament"),
+        ("EDQM", "web", "https://www.edqm.eu/", "medicament"),
+        ("HAS", "web", "https://www.has-sante.fr/", "medicament"),
+    ]
+    for nom, typ, url, mod in sources_med:
+        db.execute(
+            "INSERT INTO sources (nom, type, url, nb_alertes, module) VALUES (?, ?, ?, 0, ?) ON CONFLICT (nom) DO NOTHING",
+            (nom, typ, url, mod)
+        )
+
+    # --- Seed glossaire pharmaceutique ---
+    existing_glossaire = db.execute("SELECT COUNT(*) as cnt FROM glossaire").fetchone()["cnt"]
+    if existing_glossaire == 0:
+        from glossaire_pharma import GLOSSAIRE_SEED
+        now = datetime.now().isoformat()
+        for terme_fr, terme_en, contexte in GLOSSAIRE_SEED:
+            db.execute(
+                "INSERT INTO glossaire (terme_fr, terme_en, contexte, valide, date_creation) VALUES (?, ?, ?, 1, ?)",
+                (terme_fr, terme_en, contexte, now)
+            )
+
+    db.commit()
+    print("[DB] Tables module médicament initialisées")
+
+
 db = Database()
 init_db(db)
+init_medicament_db(db)
 
 # ---------------------------------------------------------------------------
 # Regulatory scanning logic
@@ -940,6 +1126,12 @@ def delete_dossier(dossier_id: str):
     db.commit()
     return {"ok": True, "id": dossier_id}
 
+
+# ---------------------------------------------------------------------------
+# Module médicament (CTD, variations, traduction, veille)
+# ---------------------------------------------------------------------------
+from api_medicament import create_medicament_router
+app.include_router(create_medicament_router(db))
 
 STATIC_DIR = os.path.dirname(os.path.abspath(__file__))
 
