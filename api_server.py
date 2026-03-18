@@ -91,81 +91,170 @@ def require_auth(request: Request):
     return user
 
 # ---------------------------------------------------------------------------
-# Database setup
+# Couche base de données — SQLite (local) ou PostgreSQL (Railway/production)
 # ---------------------------------------------------------------------------
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
-def get_db():
-    db = sqlite3.connect(DB_PATH, check_same_thread=False)
-    db.row_factory = sqlite3.Row
-    db.execute("PRAGMA journal_mode=WAL")
-    return db
+class Database:
+    """Wrapper léger : SQLite en local, PostgreSQL si DATABASE_URL est défini."""
+
+    def __init__(self):
+        if DATABASE_URL:
+            import psycopg2
+            import psycopg2.extras
+            url = DATABASE_URL
+            # Railway utilise parfois postgres:// au lieu de postgresql://
+            if url.startswith("postgres://"):
+                url = url.replace("postgres://", "postgresql://", 1)
+            self._conn = psycopg2.connect(url)
+            self._conn.autocommit = False
+            self._is_pg = True
+            self._psycopg2 = psycopg2
+            print("[DB] Connecté à PostgreSQL")
+        else:
+            self._conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+            self._conn.row_factory = sqlite3.Row
+            self._conn.execute("PRAGMA journal_mode=WAL")
+            self._is_pg = False
+            print("[DB] Connecté à SQLite :", DB_PATH)
+
+    @property
+    def is_postgres(self):
+        return self._is_pg
+
+    def execute(self, query, params=None):
+        """Exécuter une requête SQL (convertit les placeholders pour PostgreSQL)."""
+        if self._is_pg:
+            import psycopg2.extras
+            query = query.replace("?", "%s")
+            cur = self._conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        else:
+            cur = self._conn.cursor()
+        cur.execute(query, params or ())
+        return cur
+
+    def commit(self):
+        self._conn.commit()
+
+    def close(self):
+        self._conn.close()
+
 
 def init_db(db):
-    db.executescript("""
-        CREATE TABLE IF NOT EXISTS alertes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            hash TEXT UNIQUE NOT NULL,
-            source TEXT NOT NULL,
-            categorie TEXT NOT NULL,
-            titre TEXT NOT NULL,
-            resume TEXT,
-            url TEXT,
-            date_publication TEXT,
-            date_detection TEXT NOT NULL,
-            impact TEXT DEFAULT 'info',
-            textes_concernes TEXT,
-            lu INTEGER DEFAULT 0
-        );
-        CREATE TABLE IF NOT EXISTS sources (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nom TEXT UNIQUE NOT NULL,
-            type TEXT NOT NULL,
-            url TEXT NOT NULL,
-            derniere_verification TEXT,
-            statut TEXT DEFAULT 'actif',
-            nb_alertes INTEGER DEFAULT 0
-        );
-        CREATE TABLE IF NOT EXISTS scan_log (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date_scan TEXT NOT NULL,
-            source TEXT NOT NULL,
-            nb_nouvelles INTEGER DEFAULT 0,
-            statut TEXT DEFAULT 'ok',
-            message TEXT
-        );
-        CREATE INDEX IF NOT EXISTS idx_alertes_date ON alertes(date_detection DESC);
-        CREATE INDEX IF NOT EXISTS idx_alertes_source ON alertes(source);
-        CREATE INDEX IF NOT EXISTS idx_alertes_categorie ON alertes(categorie);
-
-        CREATE TABLE IF NOT EXISTS dossiers (
-            id TEXT PRIMARY KEY,
-            data TEXT NOT NULL,
-            date_creation TEXT NOT NULL,
-            date_modification TEXT NOT NULL
-        );
-    """)
-
-    # Seed sources if empty
-    existing = db.execute("SELECT COUNT(*) FROM sources").fetchone()[0]
-    if existing == 0:
-        sources = [
-            ("Légifrance", "api", "https://www.legifrance.gouv.fr/", "Textes législatifs et réglementaires français"),
-            ("EUR-Lex / Cellar", "rss", "https://eur-lex.europa.eu/", "Règlements et directives européens"),
-            ("ANSES", "web", "https://www.anses.fr/", "Avis et évaluations de sécurité"),
-            ("DGAL / Compl'Alim", "web", "https://agriculture.gouv.fr/", "Déclarations et contrôles compléments alimentaires"),
-            ("DGCCRF", "web", "https://www.economie.gouv.fr/dgccrf/", "Contrôles et alertes consommation"),
-            ("EFSA", "rss", "https://www.efsa.europa.eu/", "Avis scientifiques européens"),
-            ("Journal Officiel (JORF)", "api", "https://www.legifrance.gouv.fr/jorf/", "Publications du Journal Officiel"),
-            ("Data.gouv.fr", "api", "https://www.data.gouv.fr/", "Données ouvertes - déclarations CA"),
+    """Créer les tables si elles n'existent pas."""
+    if db.is_postgres:
+        # PostgreSQL — SERIAL au lieu de AUTOINCREMENT
+        statements = [
+            """CREATE TABLE IF NOT EXISTS alertes (
+                id SERIAL PRIMARY KEY,
+                hash TEXT UNIQUE NOT NULL,
+                source TEXT NOT NULL,
+                categorie TEXT NOT NULL,
+                titre TEXT NOT NULL,
+                resume TEXT,
+                url TEXT,
+                date_publication TEXT,
+                date_detection TEXT NOT NULL,
+                impact TEXT DEFAULT 'info',
+                textes_concernes TEXT,
+                lu INTEGER DEFAULT 0
+            )""",
+            """CREATE TABLE IF NOT EXISTS sources (
+                id SERIAL PRIMARY KEY,
+                nom TEXT UNIQUE NOT NULL,
+                type TEXT NOT NULL,
+                url TEXT NOT NULL,
+                derniere_verification TEXT,
+                statut TEXT DEFAULT 'actif',
+                nb_alertes INTEGER DEFAULT 0
+            )""",
+            """CREATE TABLE IF NOT EXISTS scan_log (
+                id SERIAL PRIMARY KEY,
+                date_scan TEXT NOT NULL,
+                source TEXT NOT NULL,
+                nb_nouvelles INTEGER DEFAULT 0,
+                statut TEXT DEFAULT 'ok',
+                message TEXT
+            )""",
+            """CREATE TABLE IF NOT EXISTS dossiers (
+                id TEXT PRIMARY KEY,
+                data TEXT NOT NULL,
+                date_creation TEXT NOT NULL,
+                date_modification TEXT NOT NULL
+            )""",
         ]
-        for nom, typ, url, desc in sources:
+        for stmt in statements:
+            db.execute(stmt)
+        # Index (syntaxe identique PostgreSQL / SQLite)
+        db.execute("CREATE INDEX IF NOT EXISTS idx_alertes_date ON alertes(date_detection DESC)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_alertes_source ON alertes(source)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_alertes_categorie ON alertes(categorie)")
+    else:
+        # SQLite — AUTOINCREMENT, executescript via connexion directe
+        db._conn.executescript("""
+            CREATE TABLE IF NOT EXISTS alertes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                hash TEXT UNIQUE NOT NULL,
+                source TEXT NOT NULL,
+                categorie TEXT NOT NULL,
+                titre TEXT NOT NULL,
+                resume TEXT,
+                url TEXT,
+                date_publication TEXT,
+                date_detection TEXT NOT NULL,
+                impact TEXT DEFAULT 'info',
+                textes_concernes TEXT,
+                lu INTEGER DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS sources (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nom TEXT UNIQUE NOT NULL,
+                type TEXT NOT NULL,
+                url TEXT NOT NULL,
+                derniere_verification TEXT,
+                statut TEXT DEFAULT 'actif',
+                nb_alertes INTEGER DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS scan_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date_scan TEXT NOT NULL,
+                source TEXT NOT NULL,
+                nb_nouvelles INTEGER DEFAULT 0,
+                statut TEXT DEFAULT 'ok',
+                message TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_alertes_date ON alertes(date_detection DESC);
+            CREATE INDEX IF NOT EXISTS idx_alertes_source ON alertes(source);
+            CREATE INDEX IF NOT EXISTS idx_alertes_categorie ON alertes(categorie);
+            CREATE TABLE IF NOT EXISTS dossiers (
+                id TEXT PRIMARY KEY,
+                data TEXT NOT NULL,
+                date_creation TEXT NOT NULL,
+                date_modification TEXT NOT NULL
+            );
+        """)
+
+    # Seed sources si vide
+    existing = db.execute("SELECT COUNT(*) as cnt FROM sources").fetchone()["cnt"]
+    if existing == 0:
+        sources_data = [
+            ("Légifrance", "api", "https://www.legifrance.gouv.fr/"),
+            ("EUR-Lex / Cellar", "rss", "https://eur-lex.europa.eu/"),
+            ("ANSES", "web", "https://www.anses.fr/"),
+            ("DGAL / Compl'Alim", "web", "https://agriculture.gouv.fr/"),
+            ("DGCCRF", "web", "https://www.economie.gouv.fr/dgccrf/"),
+            ("EFSA", "rss", "https://www.efsa.europa.eu/"),
+            ("Journal Officiel (JORF)", "api", "https://www.legifrance.gouv.fr/jorf/"),
+            ("Data.gouv.fr", "api", "https://www.data.gouv.fr/"),
+        ]
+        for nom, typ, url in sources_data:
             db.execute(
-                "INSERT OR IGNORE INTO sources (nom, type, url, nb_alertes) VALUES (?, ?, ?, 0)",
+                "INSERT INTO sources (nom, type, url, nb_alertes) VALUES (?, ?, ?, 0) ON CONFLICT (nom) DO NOTHING",
                 (nom, typ, url)
             )
     db.commit()
 
-db = get_db()
+db = Database()
 init_db(db)
 
 # ---------------------------------------------------------------------------
@@ -491,7 +580,7 @@ def run_full_scan(db):
 # ---------------------------------------------------------------------------
 def seed_demo_data(db):
     """Insert demo alerts to show how the system works."""
-    existing = db.execute("SELECT COUNT(*) FROM alertes").fetchone()[0]
+    existing = db.execute("SELECT COUNT(*) as cnt FROM alertes").fetchone()["cnt"]
     if existing > 0:
         return
 
@@ -582,8 +671,8 @@ def seed_demo_data(db):
     for d in demos:
         h = hash_alerte(d["source"], d["titre"], d["url"])
         db.execute("""
-            INSERT OR IGNORE INTO alertes (hash, source, categorie, titre, resume, url, date_publication, date_detection, impact, textes_concernes, lu)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+            INSERT INTO alertes (hash, source, categorie, titre, resume, url, date_publication, date_detection, impact, textes_concernes, lu)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0) ON CONFLICT (hash) DO NOTHING
         """, (h, d["source"], d["categorie"], d["titre"], d["resume"], d["url"], d["date_pub"], now, d["impact"], d["textes"]))
 
     db.commit()
@@ -688,8 +777,8 @@ def get_alertes(
         params.extend([f"%{q}%", f"%{q}%"])
 
     # Count total
-    count_query = query.replace("SELECT *", "SELECT COUNT(*)")
-    total = db.execute(count_query, params).fetchone()[0]
+    count_query = query.replace("SELECT *", "SELECT COUNT(*) as cnt")
+    total = db.execute(count_query, params).fetchone()["cnt"]
 
     query += " ORDER BY date_detection DESC LIMIT ? OFFSET ?"
     params.extend([limit, offset])
@@ -703,10 +792,10 @@ def get_alertes(
 @app.get("/api/veille/stats")
 def get_stats():
     """Get veille statistics."""
-    total = db.execute("SELECT COUNT(*) FROM alertes").fetchone()[0]
-    non_lues = db.execute("SELECT COUNT(*) FROM alertes WHERE lu = 0").fetchone()[0]
-    critiques = db.execute("SELECT COUNT(*) FROM alertes WHERE impact = 'critique'").fetchone()[0]
-    importants = db.execute("SELECT COUNT(*) FROM alertes WHERE impact = 'important'").fetchone()[0]
+    total = db.execute("SELECT COUNT(*) as cnt FROM alertes").fetchone()["cnt"]
+    non_lues = db.execute("SELECT COUNT(*) as cnt FROM alertes WHERE lu = 0").fetchone()["cnt"]
+    critiques = db.execute("SELECT COUNT(*) as cnt FROM alertes WHERE impact = 'critique'").fetchone()["cnt"]
+    importants = db.execute("SELECT COUNT(*) as cnt FROM alertes WHERE impact = 'important'").fetchone()["cnt"]
 
     # By category
     cats = db.execute("SELECT categorie, COUNT(*) as cnt FROM alertes GROUP BY categorie ORDER BY cnt DESC").fetchall()
@@ -789,9 +878,11 @@ def create_dossier(body: dict):
             (dossier_id, data_json, now, now)
         )
         db.commit()
-    except sqlite3.IntegrityError:
-        from fastapi.responses import JSONResponse
-        return JSONResponse(status_code=409, content={"error": "Dossier déjà existant", "id": dossier_id})
+    except Exception as e:
+        # IntegrityError — sqlite3 ou psycopg2
+        if "UNIQUE" in str(e).upper() or "duplicate" in str(e).lower() or "IntegrityError" in type(e).__name__:
+            return JSONResponse(status_code=409, content={"error": "Dossier déjà existant", "id": dossier_id})
+        raise
     return {"ok": True, "id": dossier_id}
 
 

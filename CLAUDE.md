@@ -1,39 +1,26 @@
-# RégulCA — Module Réglementaire Compléments Alimentaires
+# RégulCA — CLAUDE.md
 
-## Contexte CCD
-- Laboratoire CCD, groupe pharmaceutique familial français, santé féminine
-- 220 collaborateurs, 30 marques, 110+ pays
-- Utilisateurs : équipe réglementaire (~5 personnes), tous sur Microsoft 365 / Azure AD
-- Données réglementaires sensibles — hébergement souverain obligatoire
+## Projet
+Module réglementaire compléments alimentaires — Laboratoire CCD
+~5 utilisateurs, équipe réglementaire, données sensibles
 
-## Stack technique
-- Backend : FastAPI + Uvicorn — api_server.py
-- Frontend : HTML/CSS/JS vanilla servi via /static/
-- BDD : SQLite (veille.db)
-- Auth : Microsoft Azure AD SSO (à implémenter)
+## Stack
+- Backend : FastAPI + Uvicorn (api_server.py)
+- Frontend : HTML/CSS/JS vanilla (/static/)
+- BDD : SQLite local / PostgreSQL production (détection auto via DATABASE_URL)
+- Auth : JWT bcrypt (users.json) → Azure AD à venir
 
-## Hébergement
-- Déployé sur Railway (URL publique active et fonctionnelle)
-- Cible long terme : VPS OVH France (souveraineté des données)
-- Code sur GitHub : https://github.com/Jules2212-ai/regulca
+## État actuel
+- Déployé sur Railway (URL publique)
+- GitHub SSH : git@github.com:Jules2212-ai/regulca.git
+- Auth login/password fonctionnelle
+- Journal de bord : ~/Desktop/RégulCA_Journal.md
 
-## Où on en est réellement
-- App déployée sur Railway (pas OVH pour l'instant)
-- URL publique Railway active et fonctionnelle
-- Code poussé sur GitHub : https://github.com/Jules2212-ai/regulca
-- Backend CRUD dossiers opérationnel (5 endpoints)
-- Base SQLite éphémère sur Railway (à migrer vers PostgreSQL plus tard)
-- Script RégulCA.command sur le Bureau (lancement local)
-
-## Conventions de développement
-- Commentaires en français
-- Secrets dans fichier .env (jamais hardcodés dans le code)
-- Tester avec curl après chaque modification backend
-- Ne jamais modifier index.html et api_server.py en même temps
+## Règles absolues
+- Ne jamais modifier index.html et api_server.py simultanément
+- Secrets dans .env uniquement
+- Tester avec curl après chaque modif backend
+- Mettre à jour RégulCA_Journal.md après chaque étape
 
 ## Prochaine étape
-Ajouter l'authentification Microsoft Azure AD SSO :
-- Page de login avec bouton "Se connecter avec Microsoft"
-- Protection de toutes les routes (frontend + backend)
-- Utilisateurs identifiés par leur email @ccd.fr
-- Secrets Azure dans .env (AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID)
+Configurer l'addon PostgreSQL sur Railway + redéployer
