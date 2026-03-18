@@ -37,4 +37,4 @@ Groupe Patrick Choay SA (Laboratoire CCD + Bailly Creat)
 - Ne jamais push sans validation explicite de Jules
 
 ## Prochaine étape
-Auth Microsoft Azure AD SSO
+Base documentaire RAG (Phase 5)
