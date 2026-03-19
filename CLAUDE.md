@@ -12,12 +12,21 @@ Groupe Patrick Choay SA (Laboratoire CCD + Bailly Creat)
 - Auth : JWT bcrypt (users.json) → Azure AD à venir
 - IA : API Claude via claude_service.py (ANTHROPIC_API_KEY)
 
+## Design System v2
+- Tailwind CSS via CDN (pas de build)
+- Typo : Manrope (headlines) + Inter (body)
+- Couleurs : #00113a primary, #002366 secondary, #f7f9fc bg
+- Icônes : Material Symbols Outlined
+- Sidebar : 288px fixe, sections groupées (CA / Médicaments / Commun)
+- Login : split-screen, branding Groupe Patrick Choay
+
 ## État actuel
 - Déployé sur Railway (URL publique)
 - GitHub SSH : git@github.com:Jules2212-ai/regulca.git
 - Auth login/password fonctionnelle
 - Module CA : veille, dossiers, vérification formule, étiquetage, allégations
 - Module Médicament : CTD CRUD, variations catalogue+IA, traduction FR↔EN, veille médicament
+- Frontend redesigné : Tailwind + Manrope + Material Symbols
 - Journal de bord : ~/Desktop/RégulCA_Journal.md
 
 ## Fichiers clés
