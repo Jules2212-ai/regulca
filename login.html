@@ -1,144 +1,113 @@
 <!DOCTYPE html>
-<html lang="fr" data-theme="light">
+<html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Connexion — RégulCA</title>
-<link rel="stylesheet" href="/static/base.css">
-<link rel="stylesheet" href="/static/style.css">
-<style>
-  /* Page de login */
-  .login-page {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--color-bg);
-    padding: 1rem;
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        navy: { DEFAULT: '#00113a', light: '#002366', dark: '#000b24' },
+      },
+      fontFamily: {
+        display: ['Manrope', 'sans-serif'],
+        body: ['Inter', 'sans-serif'],
+      },
+    }
   }
-  .login-card {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 12px;
-    padding: 2.5rem 2rem;
-    width: 100%;
-    max-width: 400px;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
-  }
-  .login-logo {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.75rem;
-    margin-bottom: 2rem;
-  }
-  .login-logo svg {
-    color: var(--color-primary);
-  }
-  .login-logo span {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--color-text);
-  }
-  .login-title {
-    text-align: center;
-    font-size: 1.1rem;
-    font-weight: 500;
-    color: var(--color-text-secondary);
-    margin-bottom: 1.5rem;
-  }
-  .login-field {
-    margin-bottom: 1rem;
-  }
-  .login-field label {
-    display: block;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--color-text);
-    margin-bottom: 0.375rem;
-  }
-  .login-field input {
-    width: 100%;
-    padding: 0.625rem 0.75rem;
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    font-size: 0.9375rem;
-    background: var(--color-bg);
-    color: var(--color-text);
-    outline: none;
-    transition: border-color 0.2s;
-    box-sizing: border-box;
-  }
-  .login-field input:focus {
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
-  }
-  .login-btn {
-    width: 100%;
-    padding: 0.75rem;
-    border: none;
-    border-radius: 8px;
-    background: var(--color-primary);
-    color: #fff;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    margin-top: 0.5rem;
-    transition: opacity 0.2s;
-  }
-  .login-btn:hover {
-    opacity: 0.9;
-  }
-  .login-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-  .login-error {
-    background: var(--color-danger-bg, #fef2f2);
-    color: var(--color-danger, #dc2626);
-    border: 1px solid var(--color-danger, #dc2626);
-    border-radius: 8px;
-    padding: 0.625rem 0.75rem;
-    font-size: 0.875rem;
-    margin-bottom: 1rem;
-    display: none;
-  }
-  .login-error.visible {
-    display: block;
-  }
-</style>
+}
+</script>
 </head>
-<body>
-<div class="login-page">
-  <div class="login-card">
-    <div class="login-logo">
-      <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="RégulCA Logo">
-        <rect x="2" y="2" width="32" height="32" rx="6" stroke="currentColor" stroke-width="2.5" fill="none"/>
-        <path d="M9 11h8a5 5 0 0 1 0 10h-3l6 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-        <circle cx="26" cy="26" r="3.5" stroke="currentColor" stroke-width="2" fill="none"/>
-        <path d="M24.5 26l3 0M26 24.5l0 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>
-      <span>RégulCA</span>
+<body class="font-body bg-[#f7f9fc] min-h-screen">
+<div class="min-h-screen flex">
+
+  <!-- Panneau gauche — Branding -->
+  <div class="hidden lg:flex lg:w-[480px] xl:w-[520px] bg-navy flex-col justify-between p-10 relative overflow-hidden flex-shrink-0">
+    <!-- Motif décoratif -->
+    <div class="absolute inset-0 opacity-[0.04]" style="background-image: radial-gradient(circle at 1px 1px, white 1px, transparent 0); background-size: 32px 32px;"></div>
+
+    <div class="relative z-10">
+      <!-- Logo PC -->
+      <div class="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur flex items-center justify-center mb-4">
+        <span class="text-white font-display font-extrabold text-2xl">PC</span>
+      </div>
+      <p class="text-white/50 text-sm font-medium tracking-wide uppercase">Groupe Patrick Choay SA</p>
     </div>
-    <p class="login-title">Connectez-vous pour accéder au module réglementaire</p>
-    <div class="login-error" id="login-error">Identifiants incorrects</div>
-    <form id="login-form" autocomplete="on">
-      <div class="login-field">
-        <label for="username">Identifiant</label>
-        <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+
+    <div class="relative z-10">
+      <h1 class="text-white font-display font-extrabold text-4xl leading-tight mb-4">RégulCA</h1>
+      <p class="text-white/70 text-lg leading-relaxed mb-6">Module réglementaire<br>compléments alimentaires<br>et médicaments</p>
+      <div class="flex items-center gap-3 text-white/40 text-sm">
+        <div class="w-8 h-px bg-white/20"></div>
+        <span>Laboratoire CCD &middot; Bailly Creat</span>
       </div>
-      <div class="login-field">
-        <label for="password">Mot de passe</label>
-        <input type="password" id="password" name="password" autocomplete="current-password" required>
-      </div>
-      <button type="submit" class="login-btn" id="login-btn">Se connecter</button>
-    </form>
+    </div>
+
+    <div class="relative z-10 text-white/30 text-xs">
+      &copy; 2026 Groupe Patrick Choay SA — Tous droits réservés
+    </div>
   </div>
+
+  <!-- Panneau droit — Formulaire -->
+  <div class="flex-1 flex items-center justify-center p-6 sm:p-10">
+    <div class="w-full max-w-[400px]">
+
+      <!-- Logo mobile -->
+      <div class="lg:hidden flex items-center gap-3 mb-8">
+        <div class="w-10 h-10 rounded-xl bg-navy flex items-center justify-center">
+          <span class="text-white font-display font-extrabold text-sm">PC</span>
+        </div>
+        <div>
+          <p class="font-display font-extrabold text-navy text-lg leading-none">RégulCA</p>
+          <p class="text-gray-400 text-xs">Groupe Patrick Choay</p>
+        </div>
+      </div>
+
+      <h2 class="font-display font-extrabold text-2xl text-gray-900 mb-1">Connexion</h2>
+      <p class="text-gray-500 text-sm mb-8">Accédez au module réglementaire</p>
+
+      <!-- Erreur -->
+      <div id="login-error" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-5">
+        Identifiants incorrects
+      </div>
+
+      <form id="login-form" autocomplete="on">
+        <div class="mb-4">
+          <label for="username" class="block text-sm font-medium text-gray-700 mb-1.5">Identifiant</label>
+          <input type="text" id="username" name="username" autocomplete="username" required autofocus
+            class="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 outline-none transition-all focus:border-navy focus:ring-2 focus:ring-navy/10"
+            placeholder="Votre identifiant">
+        </div>
+
+        <div class="mb-6">
+          <label for="password" class="block text-sm font-medium text-gray-700 mb-1.5">Mot de passe</label>
+          <input type="password" id="password" name="password" autocomplete="current-password" required
+            class="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 outline-none transition-all focus:border-navy focus:ring-2 focus:ring-navy/10"
+            placeholder="Votre mot de passe">
+        </div>
+
+        <button type="submit" id="login-btn"
+          class="w-full py-2.5 px-4 rounded-lg text-white text-sm font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          style="background: linear-gradient(135deg, #00113a, #002366);">
+          Se connecter
+        </button>
+      </form>
+
+      <p class="text-center text-gray-400 text-xs mt-8">Plateforme réservée aux collaborateurs autorisés</p>
+    </div>
+  </div>
+
 </div>
+
 <script>
 (function () {
   "use strict";
-  // Si déjà connecté, vérifier le token et rediriger
   var token = localStorage.getItem("regulca_token");
   if (token) {
     fetch("/api/auth/me", {
@@ -154,7 +123,7 @@
 
   form.addEventListener("submit", function (e) {
     e.preventDefault();
-    errorBox.classList.remove("visible");
+    errorBox.classList.add("hidden");
     btn.disabled = true;
     btn.textContent = "Connexion...";
 
@@ -173,7 +142,7 @@
       window.location.href = "/";
     }).catch(function () {
       errorBox.textContent = "Identifiants incorrects";
-      errorBox.classList.add("visible");
+      errorBox.classList.remove("hidden");
       btn.disabled = false;
       btn.textContent = "Se connecter";
     });
