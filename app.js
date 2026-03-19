@@ -282,58 +282,7 @@
       overlay.classList.remove("visible");
     });
 
-    /* Injecter les sections Médicament dans la sidebar */
-    injectMedicamentNav();
-  }
-
-  function injectMedicamentNav() {
-    var nav = document.querySelector(".sidebar-nav");
-    if (!nav || document.getElementById("nav-med-section")) return;
-
-    /* Trouver le lien "Base réglementaire" pour insérer avant */
-    var baseRegLink = nav.querySelector('[data-nav="base-reglementaire"]');
-
-    /* Séparateur + section Médicaments */
-    var medSection = document.createElement("div");
-    medSection.id = "nav-med-section";
-    medSection.innerHTML =
-      '<div style="padding:0.5rem 0.75rem;margin-top:0.5rem;font-size:0.6875rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--color-text-faint);">Médicaments</div>' +
-      '<a href="#dossier-ctd" class="nav-item" data-nav="dossier-ctd">' +
-        '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' +
-        '<span>Dossier CTD</span></a>' +
-      '<a href="#mes-dossiers-ctd" class="nav-item" data-nav="mes-dossiers-ctd">' +
-        '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>' +
-        '<span>Mes dossiers CTD</span></a>' +
-      '<a href="#variations" class="nav-item" data-nav="variations">' +
-        '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20L20.5 3.5M21 16v5h-5M15 15l5.5 5.5M4 4l5 5"/></svg>' +
-        '<span>Variations</span></a>' +
-      '<a href="#traduction" class="nav-item" data-nav="traduction">' +
-        '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></svg>' +
-        '<span>Traduction FR↔EN</span></a>' +
-      '<a href="#veille-medicament" class="nav-item" data-nav="veille-medicament">' +
-        '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>' +
-        '<span>Veille médicament</span></a>';
-
-    if (baseRegLink) {
-      /* Ajouter un label "Commun" avant Base réglementaire */
-      var communLabel = document.createElement("div");
-      communLabel.style.cssText = "padding:0.5rem 0.75rem;margin-top:0.5rem;font-size:0.6875rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--color-text-faint);";
-      communLabel.textContent = "Commun";
-      nav.insertBefore(communLabel, baseRegLink);
-      nav.insertBefore(medSection, communLabel);
-    } else {
-      nav.appendChild(medSection);
-    }
-
-    /* Ajouter un label "Compléments alimentaires" en haut */
-    var firstNavItem = nav.querySelector(".nav-item");
-    var secondNavItem = firstNavItem ? firstNavItem.nextElementSibling : null;
-    if (secondNavItem && secondNavItem.getAttribute("data-nav") === "nouveau-dossier") {
-      var caLabel = document.createElement("div");
-      caLabel.style.cssText = "padding:0.5rem 0.75rem;margin-top:0.25rem;font-size:0.6875rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--color-text-faint);";
-      caLabel.textContent = "Compléments alimentaires";
-      nav.insertBefore(caLabel, secondNavItem);
-    }
+    /* Navigation médicament maintenant dans index.html — plus besoin d'injection JS */
   }
 
   /* ===== ROUTING ===== */
