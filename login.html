@@ -23,12 +23,19 @@ tailwind.config = {
   }
 }
 </script>
+<!-- Fallback CSS : s'applique avant que Tailwind CDN charge -->
+<style>
+  .login-brand-panel { display: none; background: #00113a; flex-direction: column; justify-content: space-between; padding: 2.5rem; position: relative; overflow: hidden; flex-shrink: 0; width: 480px; }
+  @media (min-width: 1024px) { .login-brand-panel { display: flex; } }
+  .login-form-panel { flex: 1; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+  .login-form-inner { width: 100%; max-width: 400px; }
+</style>
 </head>
-<body class="font-body bg-[#f7f9fc] min-h-screen">
-<div class="min-h-screen flex">
+<body class="font-body bg-[#f7f9fc] min-h-screen" style="font-family:'Inter',sans-serif;background:#f7f9fc;">
+<div class="min-h-screen flex" style="min-height:100vh;display:flex;">
 
-  <!-- Panneau gauche — Branding -->
-  <div class="hidden lg:flex lg:w-[480px] xl:w-[520px] bg-navy flex-col justify-between p-10 relative overflow-hidden flex-shrink-0">
+  <!-- Panneau gauche — Branding (hidden mobile, visible desktop) -->
+  <div class="login-brand-panel hidden lg:flex lg:w-[480px] xl:w-[520px] bg-navy flex-col justify-between p-10 relative overflow-hidden flex-shrink-0">
     <!-- Motif décoratif -->
     <div class="absolute inset-0 opacity-[0.04]" style="background-image: radial-gradient(circle at 1px 1px, white 1px, transparent 0); background-size: 32px 32px;"></div>
 
@@ -55,8 +62,8 @@ tailwind.config = {
   </div>
 
   <!-- Panneau droit — Formulaire -->
-  <div class="flex-1 flex items-center justify-center p-6 sm:p-10">
-    <div class="w-full max-w-[400px]">
+  <div class="login-form-panel flex-1 flex items-center justify-center p-6 sm:p-10">
+    <div class="login-form-inner w-full max-w-[400px]">
 
       <!-- Logo mobile -->
       <div class="lg:hidden flex items-center gap-3 mb-8">
